@@ -31,7 +31,7 @@ if a:
         with st.spinner('AI is generating the image details'):
 
             res = cl.models.generate_content(
-            model='gemini-3-flash-preview',
+            model='Gemini 3.1 Flash Lite',?
             contents=[prompt,*pimg]
        )
             # st.markdown(res.text)
