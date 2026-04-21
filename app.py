@@ -63,10 +63,10 @@ if a:
     - "width_ft": Width in feet (if available else approximate)
     - "warranty_type": Warranty Type
     - "warranty_time": Warranty Time (if available)
-    - "mrp": MRP (if available)
-    - "sell_price": Sell price (if available)
     - "material": Material / Specifications
     - "description": A detailed description in 100 words.
+    - "mrp": MRP (if available)
+    - "sell_price": Sell price (if available)
     
     Output raw JSON only without any markdown formatting. No ecommerce names/links. Blank if not found"""
 
