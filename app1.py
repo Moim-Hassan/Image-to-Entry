@@ -16,8 +16,6 @@ load_dotenv(dotenv_path=Path(__file__).parent / '.env')
 g_api = os.environ.get('gapi')
 
 cl = genai.Client(api_key=g_api)
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 
 # --- GOOGLE SHEETS SETUP ---
 def add_to_google_sheet(data_dict):
