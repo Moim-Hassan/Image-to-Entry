@@ -28,26 +28,17 @@ def add_to_google_sheet(data_dict):
         ]
         
         creds_json_str = os.environ.get('G_SHEET_CREDS')
-        if not creds_json_str:
-            st.error("G_SHEET_CREDS not found in .env!")
-            return False
-
-        # Clean the string (removes potential wrapper quotes from .env)
-        creds_json_str = creds_json_str.strip()
-        if creds_json_str.startswith("'") and creds_json_str.endswith("'"):
-            creds_json_str = creds_json_str[1:-1]
+        # ... (your cleaning logic) ...
         
         creds_info = json.loads(creds_json_str)
+        
+        # Use the modern Credentials class here:
         creds = Credentials.from_service_account_info(creds_info, scopes=scope)
         client = gspread.authorize(creds)
         
-        # Open your specific sheet ID
         sheet = client.open_by_key("1t9kAYh_RalMG4tdQuPtLPZoiVpk3zIrJmX4IAKy8g7I").sheet1 
-        
-        # Append data as a new row
         sheet.append_row(list(data_dict.values()))
         return True
-        
     except Exception as e:
         st.error(f"Google Sheet Error: {e}")
         return False
