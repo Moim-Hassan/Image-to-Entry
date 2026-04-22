@@ -8,43 +8,56 @@ import pandas as pd
 import json, re
 from pathlib import Path
 from google.genai import types
+import gspread
+from google.oauth2.service_account import Credentials
 
 # --- CONFIGURATION ---
 load_dotenv(dotenv_path=Path(__file__).parent / '.env')
 g_api = os.environ.get('gapi')
 
 cl = genai.Client(api_key=g_api)
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# --- IMAGE GENERATION FUNCTION ---
-# def generate_product_images(product_name, brand, category, description):
-#     prompt = (
-#         f"Professional product photography of {brand} {product_name}, "
-#         f"{category}. Clean white background, studio lighting, "
-#         f"high resolution, commercial product shot. {description[:100]}"
-#     )
-#     try:
-#         response = cl.models.generate_images(
-#             model='gemini-2.5-flash-image',
-#             prompt=prompt,
-#             config=types.GenerateImagesConfig(
-#                 number_of_images=3,
-#                 aspect_ratio="1:1"
-#             )
-#         )
-#         images = []
-#         for img in response.generated_images:
-#             pil_img = Image.open(io.BytesIO(img.image.image_bytes))
-#             images.append(pil_img)
-#         return images
-#     except Exception as e:
-#         st.warning(f"Image generation failed: {e}")
-#         return []
-st.header('Image to Entry', divider=True, text_alignment='center')
+# --- GOOGLE SHEETS SETUP ---
+def add_to_google_sheet(data_dict):
+    try:
+        scope = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+        
+        creds_json_str = os.environ.get('G_SHEET_CREDS')
+        if not creds_json_str:
+            st.error("G_SHEET_CREDS not found in .env!")
+            return False
+
+        # Clean the string (removes potential wrapper quotes from .env)
+        creds_json_str = creds_json_str.strip()
+        if creds_json_str.startswith("'") and creds_json_str.endswith("'"):
+            creds_json_str = creds_json_str[1:-1]
+        
+        creds_info = json.loads(creds_json_str)
+        creds = Credentials.from_service_account_info(creds_info, scopes=scope)
+        client = gspread.authorize(creds)
+        
+        # Open your specific sheet ID
+        sheet = client.open_by_key("1t9kAYh_RalMG4tdQuPtLPZoiVpk3zIrJmX4IAKy8g7I").sheet1 
+        
+        # Append data as a new row
+        sheet.append_row(list(data_dict.values()))
+        return True
+        
+    except Exception as e:
+        st.error(f"Google Sheet Error: {e}")
+        return False
+
+st.header('Image to Entry', divider=True)
 
 a = st.file_uploader("Upload images", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True)
 
 if a:
-    st.subheader("Uploaded Images", divider=True, text_alignment='center')
+    st.subheader("Uploaded Images", divider=True)
     col = st.columns(len(a))
     pimg = []
     for i, file in enumerate(a):
@@ -91,70 +104,29 @@ if a:
                 product_data = json.loads(raw_json)
                 st.session_state['product_data'] = product_data
 
-                # # 2. AI Image Generation
-                # st.session_state['generated_images'] = generate_product_images(
-                #     product_name=product_data.get('product_name_en', 'product'),
-                #     brand=product_data.get('brand', ''),
-                #     category=product_data.get('category', ''),
-                #     description=product_data.get('description', '')
-                # )
 
             except Exception as e:
                 st.error(f"Error: {e}")
 
     # --- DISPLAY & EDIT SECTION ---
-    if 'product_data' in st.session_state:
-        st.subheader("Edit Product Details", divider=True, text_alignment='center')
+if 'product_data' in st.session_state:
+    st.subheader("Edit Product Details", divider=True)
 
-        edited_data = {}
-        data = st.session_state['product_data']
-        col1, col2 = st.columns(2)
+    edited_data = {}
+    data = st.session_state['product_data']
+    col1, col2 = st.columns(2)
 
-        for idx, (key, value) in enumerate(data.items()):
-            target_col = col1 if idx % 2 == 0 else col2
-            if 'description' in key.lower():
-                edited_data[key] = target_col.text_area(label=key, value=str(value), height=100)
-            else:
-                edited_data[key] = target_col.text_input(label=key, value=str(value))
+    for idx, (key, value) in enumerate(data.items()):
+        target_col = col1 if idx % 2 == 0 else col2
+        if 'description' in key.lower():
+            edited_data[key] = target_col.text_area(label=key, value=str(value), height=100)
+        else:
+            edited_data[key] = target_col.text_input(label=key, value=str(value))
 
-        # # --- GENERATED IMAGES SECTION ---
-        # st.subheader("AI Generated Product Images", divider=True)
-        # gen_imgs = st.session_state.get('generated_images', [])
-
-        # if gen_imgs:
-        #     img_cols = st.columns(len(gen_imgs))
-        #     for idx, pil_img in enumerate(gen_imgs):
-        #         with img_cols[idx]:
-        #             st.image(pil_img, use_container_width=True)
-        #             if st.session_state.get('selected_img_idx') == idx:
-        #                 st.success("Selected!")
-        #             else:
-        #                 if st.button(f"Select Image {idx+1}", key=f"img_{idx}"):
-        #                     st.session_state['selected_img_idx'] = idx
-        #                     st.rerun()
-        # else:
-        #     st.info("No images generated yet.")
-
-        # --- DOWNLOAD SECTION ---
-        st.divider()
-
-        # Convert selected PIL image to base64 for CSV storage
-        selected_idx = st.session_state.get('selected_img_idx')
-        selected_b64 = ''
-        if selected_idx is not None and gen_imgs:
-            buf = io.BytesIO()
-            gen_imgs[selected_idx].save(buf, format='PNG')
-            selected_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-
-        edited_data['generated_image_b64'] = selected_b64
-
-        final_df = pd.DataFrame([edited_data])
-        csv = final_df.to_csv(index=False).encode('utf-8-sig')
-
-        st.download_button(
-            label="Download as CSV",
-            data=csv,
-            file_name=f"product_entry_{edited_data.get('brand', 'item')}.csv",
-            mime='text/csv',
-            type="primary"
-        )
+    st.divider()
+    final_df = pd.DataFrame([edited_data])
+    if st.button("🚀 Submit", type="primary", use_container_width=True):
+        with st.spinner("Pushing to Google Sheets..."):
+            if add_to_google_sheet(edited_data):
+                st.toast("Success! Row added.", icon="✅")
+                # st.snow()
