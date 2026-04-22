@@ -41,12 +41,12 @@ def add_to_google_sheet(data_dict):
         st.error(f"Google Sheet Error: {e}")
         return False
 
-st.header('Image to Entry', divider=True)
+st.header('Image to Entry', divider=True,text_alignment='center')
 
 a = st.file_uploader("Upload images", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True)
 
 if a:
-    st.subheader("Uploaded Images", divider=True)
+    st.subheader("Uploaded Images", divider=True,text_alignment='center')
     col = st.columns(len(a))
     pimg = []
     for i, file in enumerate(a):
@@ -99,7 +99,7 @@ if a:
 
     # --- DISPLAY & EDIT SECTION ---
 if 'product_data' in st.session_state:
-    st.subheader("Edit Product Details", divider=True)
+    st.subheader("Edit Product Details", divider=True,text_alignment='center')
 
     edited_data = {}
     data = st.session_state['product_data']
