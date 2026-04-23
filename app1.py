@@ -87,7 +87,7 @@ if a:
 
 # --- 4. SINGLE COLUMN EDIT & SUBMIT ---
 if 'product_data' in st.session_state:
-    st.subheader("📝 Review & Edit Details", divider=True,,text_alignment='center')
+    st.subheader("📝 Review & Edit Details", divider=True,text_alignment='center')
 
     edited_data = {}
     data = st.session_state['product_data']
