@@ -1,39 +1,35 @@
 import streamlit as st
 from google import genai
 from google.genai import types
-import os, io, base64
+import os, io, json, re
 from dotenv import load_dotenv
 from PIL import Image
 import pandas as pd
-import json, re
 from pathlib import Path
-from google.genai import types
 import gspread
 from google.oauth2.service_account import Credentials
 
-# --- CONFIGURATION ---
+# --- 1. PAGE CONFIGURATION ---
+# Removed layout="wide" to keep it in the default centered column
+st.set_page_config(
+    page_title="Product Entry AI",
+    page_icon="📦"
+)
+
+# --- 2. LOAD CREDENTIALS (Same as before) ---
 load_dotenv(dotenv_path=Path(__file__).parent / '.env')
 g_api = os.environ.get('gapi')
-
 cl = genai.Client(api_key=g_api)
 
-# --- GOOGLE SHEETS SETUP ---
 def add_to_google_sheet(data_dict):
     try:
-        scope = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
-        
-        creds_json_str = os.environ.get('G_SHEET_CREDS')
-        # ... (your cleaning logic) ...
-        
+        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds_json_str = os.environ.get('G_SHEET_CREDS').strip()
+        if creds_json_str.startswith("'") and creds_json_str.endswith("'"):
+            creds_json_str = creds_json_str[1:-1]
         creds_info = json.loads(creds_json_str)
-        
-        # Use the modern Credentials class here:
         creds = Credentials.from_service_account_info(creds_info, scopes=scope)
         client = gspread.authorize(creds)
-        
         sheet = client.open_by_key("1t9kAYh_RalMG4tdQuPtLPZoiVpk3zIrJmX4IAKy8g7I").sheet1 
         sheet.append_row(list(data_dict.values()))
         return True
@@ -41,85 +37,99 @@ def add_to_google_sheet(data_dict):
         st.error(f"Google Sheet Error: {e}")
         return False
 
-st.header('Image to Entry', divider=True,text_alignment='center')
+# --- 3. UPLOADER SECTION ---
+st.header('📦 Image to Entry', divider='rainbow')
 
-a = st.file_uploader("Upload images", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True)
+a = st.file_uploader("Upload product images", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True)
 
 if a:
-    st.subheader("Uploaded Images", divider=True,text_alignment='center')
-    col = st.columns(len(a))
     pimg = []
+    # Display images in a grid for preview, but processing stays linear
+    cols = st.columns(4)
     for i, file in enumerate(a):
         img_bytes = file.getvalue()
-        with col[i]:
-            st.image(img_bytes)
+        with cols[i % 4]:
+            st.image(img_bytes, use_container_width=True)
         x = Image.open(io.BytesIO(img_bytes))
         if x.mode in ("RGBA", "P"): x = x.convert("RGB")
-        x.thumbnail((768, 768), Image.Resampling.LANCZOS)
+        x.thumbnail((800, 800))
         pimg.append(x)
 
     prompt = """Extract details for the provided product images. Return ONLY a valid JSON object with the following exact keys (all values must be strings):
     - "product_name_en": Product name in English
     - "product_name_bn": Product name in Bangla
     - "category": Product category (match from rokomari.com category)
-    - "brand": Brand name
+    - "brand": Brand name (If not found, keep blank")
     - "sub_title_en": Sub-title in English
     - "sub_title_bn": Sub-title in Bangla
-    - "height_ft": Height in feet (if available else approximate)
-    - "length_ft": Length in feet (if available else approximate)
-    - "width_ft": Width in feet (if available else approximate)
+    - "height_feet": Height in feet (if available else approximate)
+    - "length_feet": Length in feet (if available else approximate)
+    - "width_feet": Width in feet (if available else approximate)
     - "warranty_type": Warranty Type
     - "warranty_time": Warranty Time (if available)
     - "material": Material / Specifications
     - "description_en": A detailed description in 150 words.
     - "description_bn": A detailed description in 150 words.
-    - "mrp": MRP (if available)
-    - "sell_price": Sell price (if available)
+    - "mrp (৳)": MRP (if available, in bdt)
+    - "sell_price (৳)": Sell price (if available, in bdt)
     
     Output raw JSON only without any markdown formatting. No ecommerce names/links. Blank if not found"""
 
-    if st.button('Generate', type='primary'):
-        with st.spinner('AI is extracting details for the images...'):
+    if st.button('✨ Generate Product Details', type='primary', use_container_width=True):
+        with st.spinner('AI analyzing...'):
             try:
-                # 1. AI Text Generation
-                res = cl.models.generate_content(
-                    model='gemini-3.1-flash-lite-preview',
-                    contents=[prompt, *pimg]
-                )
-                raw_json = res.text
-                match = re.search(r'\{.*\}', raw_json, re.DOTALL)
+                res = cl.models.generate_content(model='gemini-3.1-flash-lite-preview', contents=[prompt, *pimg])
+                match = re.search(r'\{.*\}', res.text, re.DOTALL)
                 if match:
-                    raw_json = match.group(0)
-                product_data = json.loads(raw_json)
-                st.session_state['product_data'] = product_data
-
-
+                    st.session_state['product_data'] = json.loads(match.group(0))
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"AI Error: {e}")
 
-    # --- DISPLAY & EDIT SECTION ---
+# --- 4. SINGLE COLUMN EDIT & SUBMIT ---
 if 'product_data' in st.session_state:
-    st.subheader("Edit Product Details", divider=True,text_alignment='center')
+    st.subheader("📝 Review & Edit Details", divider=True)
 
     edited_data = {}
     data = st.session_state['product_data']
-    col1, col2 = st.columns(2)
-
-    for idx, (key, value) in enumerate(data.items()):
-        target_col = col1 if idx % 2 == 0 else col2
-        if 'description' in key.lower():
-            edited_data[key] = target_col.text_area(label=key, value=str(value), height=100)
+    
+    # Simple vertical loop
+    for key, value in data.items():
+        label = key.replace('_', ' ').title()
+        
+        # Logic for the Warranty Dropdown
+        if key == "warranty_type":
+            options = ["BRAND_WARRENTY", "SUPPLIER_WARRENTY", "NO_WARRENTY"]
+            
+            # Try to match AI output to options, default to NO_WARRENTY if not found
+            current_val = str(value).upper().replace(" ", "_")
+            default_index = 2 # Default to NO_WARRENTY
+            if current_val in options:
+                default_index = options.index(current_val)
+                
+            edited_data[key] = st.selectbox(label, options=options, index=default_index)
+            
+        # Logic for Descriptions
+        elif 'description' in key.lower():
+            edited_data[key] = st.text_area(label, value=str(value), height=150)
+            
+        # Logic for all other text inputs
         else:
-            edited_data[key] = target_col.text_input(label=key, value=str(value))
+            edited_data[key] = st.text_input(label, value=str(value))
 
     st.divider()
-    final_df = pd.DataFrame([edited_data])
-    if st.button("🚀 Submit", type="primary", use_container_width=True):
-        with st.spinner("Pushing to Google Sheets..."):
-            if add_to_google_sheet(edited_data):
-                st.toast("Success! Row added.", icon="✅")
-                # st.snow()
-                st.session_state.pop('product_data', None)
-                st.session_state.pop('edited_data', None)
-                st.rerun()
-                st.success("Data submitted successfully")
+    msg_area = st.empty()
+    
+    if st.button("🚀 Submit to Google Sheet", type="primary", use_container_width=True):
+        mrp = str(edited_data.get('mrp', '')).strip()
+        sell = str(edited_data.get('sell_price', '')).strip()
+        
+        if not mrp or not sell or mrp.lower() == "none" or mrp.isdecimal() or sell.isdecimal():
+            msg_area.error("🚨Valid MRP and Sell Price are required!")
+        else:
+            with st.spinner("Writing to database..."):
+                if add_to_google_sheet(edited_data):
+                    st.toast("Success! Row added.", icon="✅", duration='infinite')
+                    # st.success("✅ Success!")
+                    # st.balloons()
+                    del st.session_state['product_data']
+                    st.rerun()
