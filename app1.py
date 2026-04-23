@@ -119,3 +119,6 @@ if 'product_data' in st.session_state:
             if add_to_google_sheet(edited_data):
                 st.toast("Success! Row added.", icon="✅")
                 # st.snow()
+                st.session_state.pop('product_data', None)
+                st.session_state.pop('edited_data', None)
+                st.rerun()
