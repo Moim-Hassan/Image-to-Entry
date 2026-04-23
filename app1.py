@@ -38,7 +38,7 @@ def add_to_google_sheet(data_dict):
         return False
 
 # --- 3. UPLOADER SECTION ---
-st.header('📦 Image to Entry', divider='rainbow')
+st.header('📦 Image to Entry', divider='rainbow',text_alignment='center')
 
 a = st.file_uploader("Upload product images", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True)
 
@@ -87,7 +87,7 @@ if a:
 
 # --- 4. SINGLE COLUMN EDIT & SUBMIT ---
 if 'product_data' in st.session_state:
-    st.subheader("📝 Review & Edit Details", divider=True)
+    st.subheader("📝 Review & Edit Details", divider=True,,text_alignment='center')
 
     edited_data = {}
     data = st.session_state['product_data']
