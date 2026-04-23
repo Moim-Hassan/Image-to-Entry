@@ -122,3 +122,4 @@ if 'product_data' in st.session_state:
                 st.session_state.pop('product_data', None)
                 st.session_state.pop('edited_data', None)
                 st.rerun()
+                st.success("Data submitted successfully")
