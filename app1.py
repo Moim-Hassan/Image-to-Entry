@@ -10,13 +10,9 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # --- 1. PAGE CONFIGURATION ---
-# Removed layout="wide" to keep it in the default centered column
-st.set_page_config(
-    page_title="Product Entry AI",
-    page_icon="📦"
-)
+st.set_page_config(page_title="Product Entry AI", page_icon="📦")
 
-# --- 2. LOAD CREDENTIALS (Same as before) ---
+# --- 2. LOAD CREDENTIALS ---
 load_dotenv(dotenv_path=Path(__file__).parent / '.env')
 g_api = os.environ.get('gapi')
 cl = genai.Client(api_key=g_api)
@@ -44,7 +40,6 @@ a = st.file_uploader("Upload product images", type=['jpg', 'jpeg', 'png'], accep
 
 if a:
     pimg = []
-    # Display images in a grid for preview, but processing stays linear
     cols = st.columns(4)
     for i, file in enumerate(a):
         img_bytes = file.getvalue()
@@ -75,7 +70,7 @@ if a:
     
     Output raw JSON only without any markdown formatting. No ecommerce names/links. Blank if not found"""
 
-    if st.button('✨ Generate Product Details', type='primary', use_container_width=True):
+    if st.button('✨ Generate Product Data', type='primary', use_container_width=True):
         with st.spinner('AI analyzing...'):
             try:
                 res = cl.models.generate_content(model='gemini-3.1-flash-lite-preview', contents=[prompt, *pimg])
@@ -92,44 +87,41 @@ if 'product_data' in st.session_state:
     edited_data = {}
     data = st.session_state['product_data']
     
-    # Simple vertical loop
     for key, value in data.items():
         label = key.replace('_', ' ').title()
         
-        # Logic for the Warranty Dropdown
         if key == "warranty_type":
             options = ["BRAND_WARRENTY", "SUPPLIER_WARRENTY", "NO_WARRENTY"]
-            
-            # Try to match AI output to options, default to NO_WARRENTY if not found
             current_val = str(value).upper().replace(" ", "_")
-            default_index = 2 # Default to NO_WARRENTY
+            default_index = 2
             if current_val in options:
                 default_index = options.index(current_val)
-                
             edited_data[key] = st.selectbox(label, options=options, index=default_index)
             
-        # Logic for Descriptions
         elif 'description' in key.lower():
             edited_data[key] = st.text_area(label, value=str(value), height=150)
             
-        # Logic for all other text inputs
         else:
             edited_data[key] = st.text_input(label, value=str(value))
 
     st.divider()
     msg_area = st.empty()
-    
+
     if st.button("🚀 Submit to Google Sheet", type="primary", use_container_width=True):
-        mrp = str(edited_data.get('mrp', '')).strip()
-        sell = str(edited_data.get('sell_price', '')).strip()
+        # FIX: Using the correct keys with (৳) symbol as defined in your prompt
+        mrp_val = str(edited_data.get('mrp (৳)', '')).strip()
+        sell_val = str(edited_data.get('sell_price (৳)', '')).strip()
         
-        if not mrp or not sell or mrp.lower() == "none" or mrp.isdecimal() or sell.isdecimal():
-            msg_area.error("🚨Valid MRP and Sell Price are required!")
+        # VALIDATION LOGIC FIX:
+        # We want to trigger error if:
+        # 1. Field is empty
+        # 2. Field says "None"
+        # 3. Field contains NON-numeric characters (not isdecimal)
+        if not mrp_val or not sell_val or mrp_val.lower() == "none" or not mrp_val.replace('.','',1).isdigit() or not sell_val.replace('.','',1).isdigit() or float(mrp_val)<=float(sell_val):
+            msg_area.error("🚨 Please enter a valid numeric MRP and Sell Price!")
         else:
             with st.spinner("Writing to database..."):
                 if add_to_google_sheet(edited_data):
-                    st.toast("Success! Row added.", icon="✅", duration='infinite')
-                    # st.success("✅ Success!")
-                    # st.balloons()
+                    st.toast("Success! Row added.", icon="✅",duration='infinite')
                     del st.session_state['product_data']
                     st.rerun()
