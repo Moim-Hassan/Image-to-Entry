@@ -66,7 +66,7 @@ if a:
     - "description_en": A detailed description in 150 words.
     - "description_bn": A detailed description in 150 words.
     - "mrp (৳)": MRP (if available, in bdt)
-    - "sell_price (৳)": Sell price (if available, in bdt)
+    - "sell_price (৳)": Sell price (keep it always blank, in bdt)
     
     Output raw JSON only without any markdown formatting. No ecommerce names/links. Blank if not found"""
 
@@ -107,7 +107,7 @@ if 'product_data' in st.session_state:
     st.divider()
     msg_area = st.empty()
 
-    if st.button("🚀 Submit to Google Sheet", type="primary", use_container_width=True):
+    if st.button("🚀 Submitting to Rokomari Database", type="primary", use_container_width=True):
         # FIX: Using the correct keys with (৳) symbol as defined in your prompt
         mrp_val = str(edited_data.get('mrp (৳)', '')).strip()
         sell_val = str(edited_data.get('sell_price (৳)', '')).strip()
@@ -118,7 +118,7 @@ if 'product_data' in st.session_state:
         # 2. Field says "None"
         # 3. Field contains NON-numeric characters (not isdecimal)
         if not mrp_val or not sell_val or mrp_val.lower() == "none" or not mrp_val.replace('.','',1).isdigit() or not sell_val.replace('.','',1).isdigit() or float(mrp_val)<=float(sell_val):
-            msg_area.error("🚨 Please enter a valid numeric MRP and Sell Price!")
+            msg_area.error("🚨 Please enter a valid numeric MRP and Selling Price!")
         else:
             with st.spinner("Writing to database..."):
                 if add_to_google_sheet(edited_data):
