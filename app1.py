@@ -95,7 +95,7 @@ if 'product_data' in st.session_state:
         label = key.replace('_', ' ').title()
         
         if key == "warranty_type":
-            options = ["BRAND_WARRENTY", "SUPPLIER_WARRENTY", "NO_WARRENTY"]
+            options = ["BRAND_WARRANTY", "SUPPLIER_WARRANTY", "NO_WARRANTY"]
             current_val = str(value).upper().replace(" ", "_")
             default_index = 2
             if current_val in options:
