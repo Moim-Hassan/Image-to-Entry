@@ -36,7 +36,11 @@ def add_to_google_sheet(data_dict):
 # --- 3. UPLOADER SECTION ---
 st.header('📦 Image to Entry', divider='rainbow',text_alignment='center')
 
-a = st.file_uploader("Upload product images", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True)
+if 'success_msg' in st.session_state:
+    st.success(st.session_state['success_msg'])
+    del st.session_state['success_msg']
+
+a = st.file_uploader("Upload product images", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True, key="my_files")
 
 if a:
     pimg = []
@@ -62,7 +66,7 @@ if a:
     - "width_feet": Width in feet (if available else approximate)
     - "warranty_type": Warranty Type
     - "warranty_time": Warranty Time (if available)
-    - "material": Material / Specifications
+    - "material": Material
     - "description_en": A detailed description in 150 words.
     - "description_bn": A detailed description in 150 words.
     - "mrp (৳)": MRP (if available, in bdt)
@@ -122,6 +126,8 @@ if 'product_data' in st.session_state:
         else:
             with st.spinner("Writing to database..."):
                 if add_to_google_sheet(edited_data):
-                    st.toast("Success! Row added.", icon="✅",duration='infinite')
+                    st.session_state['success_msg'] = "🎉 Successfully submitted to Rokomari database!"
                     del st.session_state['product_data']
-                    st.rerun()
+                    if 'my_files' in st.session_state:
+                        del st.session_state["my_files"]
+            st.rerun()
