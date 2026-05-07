@@ -65,7 +65,7 @@ if a:
     - "length_feet": Length in feet (if available else approximate)
     - "width_feet": Width in feet (if available else approximate)
     - "warranty_type": Warranty Type
-    - "warranty_time": Warranty Time (if available)
+    - "warranty_time (days)": Warranty Time (if available)
     - "material": Material
     - "description_en": A detailed description in 150 words.
     - "description_bn": A detailed description in 150 words.
